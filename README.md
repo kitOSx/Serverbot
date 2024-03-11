@@ -5,3 +5,7 @@ If you use Linux, you probably already know what to do.
 Be sure to add your own Bot key and directory to ensure it actually runs.
 
 
+# Commands
+Use !start to start the server
+Use !stop to stop the server
+self explanatory lol 
