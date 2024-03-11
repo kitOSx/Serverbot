@@ -6,6 +6,8 @@ Be sure to add your own Bot key and directory to ensure it actually runs.
 
 
 # Commands
-Use !start to start the server/n
-Use !stop to stop the server/n
+Use !start to start the server
+
+Use !stop to stop the server
+
 self explanatory lol 
