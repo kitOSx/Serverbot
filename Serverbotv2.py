@@ -49,7 +49,7 @@ async def stop(ctx):
         await ctx.send("You do not have permission to use this command.")
         return
 
-    # Stop the server if it's running
+    # Stop the server if it's running, I seriously dont think anything past this point works 
     if subprocess_handle:
         subprocess_handle.stdin.write("stop\n")
         subprocess_handle.stdin.flush()
@@ -64,5 +64,5 @@ async def stop(ctx):
         await ctx.send("No server found.")
 
 
-# Run the bot
+# Run the bot, I know this works lol 
 bot.run("# Put your Discord Bot token here")
