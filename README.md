@@ -11,10 +11,14 @@ Use !start to start the server
 
 Use !stop to stop the server
 
-self explanatory lol 
+Use !restart to restart the server
+
+!whitelist (playername) to whitelist a player
+
+!ban (playername) to ban a player
+
+!unban (playername) to unban a player.
 
 
 # TODO
-Add a command to reset the server 
-
-Add a command to whitelist, blacklist and ban IPs and usernames
+I got all my goals in the project completed. Any reccomendations?
