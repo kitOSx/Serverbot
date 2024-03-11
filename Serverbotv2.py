@@ -63,6 +63,7 @@ async def stop(ctx):
     else:
         await ctx.send("No server found.")
 
+
 @bot.command(name="restart")
 async def restart(ctx):
     global subprocess_handle
@@ -83,7 +84,7 @@ async def restart(ctx):
         print("Server stopped.")
     else:
         await ctx.send("No server found to restart, starting a new one...")
-    
+
     # Restart the server
     await ctx.send("Server Attempting to restart!")
     subprocess_handle = subprocess.Popen(
@@ -107,7 +108,7 @@ async def whitelist_add(ctx, user_name: str):
     if not ctx.channel.permissions_for(ctx.author).administrator:
         await ctx.send("You do not have permission to use this command.")
         return
-    
+
     # Check if the server is running
     if subprocess_handle:
         # Send the whitelist add command to the server
@@ -117,6 +118,7 @@ async def whitelist_add(ctx, user_name: str):
         await ctx.send(f"User {user_name} has been added to the whitelist.")
     else:
         await ctx.send("Server is not running.")
+
 
 @bot.command(name="whitelist_remove")
 async def whitelist_remove(ctx, user_name: str):
@@ -136,6 +138,7 @@ async def whitelist_remove(ctx, user_name: str):
     else:
         await ctx.send("Server is not running.")
 
+
 @bot.command(name="ban")
 async def ban(ctx, user_name: str):
     global subprocess_handle
@@ -154,6 +157,7 @@ async def ban(ctx, user_name: str):
     else:
         await ctx.send("Server is not running.")
 
+
 @bot.command(name="unban")
 async def unban(ctx, user_name: str):
     global subprocess_handle
@@ -171,8 +175,6 @@ async def unban(ctx, user_name: str):
         await ctx.send(f"{user_name} has been unbanned.")
     else:
         await ctx.send("Server is not running.")
-
-
 
 
 # Run the bot
