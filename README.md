@@ -11,3 +11,11 @@ Use !start to start the server
 Use !stop to stop the server
 
 self explanatory lol 
+
+
+# TODO
+Add a command to reset the server 
+
+Add a command to whitelist, blacklist and ban IPs and usernames
+
+All so we can control it without having access to the computer running the server / having an admin on the server
