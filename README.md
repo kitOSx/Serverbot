@@ -4,6 +4,7 @@ If anyone actually stumbles upon this online and wants to use it for your own se
 If you use Linux, you probably already know what to do.
 Be sure to add your own Bot key and directory to ensure it actually runs.
 
+All so we can control it without having access to the computer running the server / having an admin on the server
 
 # Commands
 Use !start to start the server
@@ -17,5 +18,3 @@ self explanatory lol
 Add a command to reset the server 
 
 Add a command to whitelist, blacklist and ban IPs and usernames
-
-All so we can control it without having access to the computer running the server / having an admin on the server
