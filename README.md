@@ -13,7 +13,7 @@ Use !stop to stop the server
 
 Use !restart to restart the server
 
-!whitelist (playername) to whitelist a player
+!whitelist_add (playername) to whitelist a player
 
 !ban (playername) to ban a player
 
