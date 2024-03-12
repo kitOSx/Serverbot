@@ -24,3 +24,7 @@ Use /restart to restart the server
   - Add embeds. (make it look prettier)
   - Work on bug fixes and compatibility issues.
   - Add more commands.
+
+# Special thanks
+
+@therealOri for further improvements and bugfixes (also for making my ass code look readable)
