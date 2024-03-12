@@ -7,17 +7,17 @@ Be sure to add your own Bot key and directory to ensure it actually runs.
 All so we can control it without having access to the computer running the server / having an admin on the server or having to SSH into the server.
 
 # Commands
-Use !start to start the server
+Use /start to start the server
 
-Use !stop to stop the server
+Use /stop to stop the server
 
-Use !restart to restart the server
+Use /restart to restart the server
 
-!whitelist_add (playername) to whitelist a player
+/whitelist_add (playername) to whitelist a player
 
-!ban (playername) to ban a player
+/ban (playername) to ban a player
 
-!unban (playername) to unban a player.
+/unban (playername) to unban a player.
 
 
 # TODO
