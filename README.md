@@ -21,4 +21,6 @@ Use !restart to restart the server
 
 
 # TODO
-I got all my goals in the project completed. Any reccomendations?
+  - Add embeds. (make it look prettier)
+  - Work on bug fixes and compatibility issues.
+  - Add more commands.
