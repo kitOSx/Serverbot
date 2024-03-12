@@ -24,7 +24,6 @@ Use /restart to restart the server
   - Add embeds. (make it look prettier)
   - Work on bug fixes and compatibility issues.
   - Add more commands.
-  - Make it compatable with windows again
 
 # Special thanks
 
