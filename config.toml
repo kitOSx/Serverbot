@@ -1,0 +1,3 @@
+token="" # you know what goes here. ~~the bot's token~~
+server_jar="" # server.jar file here. (files and everything will be saved to this current folder.)
+discord_guild = #server ID here
