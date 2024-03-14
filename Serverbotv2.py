@@ -23,6 +23,8 @@ with open('config.toml', 'rb') as fileObj:
 
 TOKEN = config["token"]
 server_jar = config["server_jar"]
+min_heap_size = config["min_heap_size"]
+max_heap_size = config["max_heap_size"]
 guild_id = config["discord_guild"]
 GUILD = discord.Object(id=guild_id)
 logging_channel_id = config["logging_channel"]
@@ -44,7 +46,7 @@ subprocess_handle = None
 
 #juicy platform control <3
 if sys.platform == 'win32':
-    platform_command = ['cmd', '/k', f'{server_jar}']
+    platform_command = ['cmd', '/k', f'java -Xms{min_heap_size} -Xmx{max_heap_size} -jar {server_jar} nogui']
 else:
     #assuming server already exists and eula has been agreed too and server heap size stuff has been set up already, etc.
     platform_command = ['java', '-jar', f'{server_jar}', 'nogui']
