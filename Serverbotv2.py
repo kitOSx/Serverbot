@@ -44,12 +44,18 @@ subprocess_handle = None
 
 
 
+#Just in case no heap sizes are given. Use Minecraft's Recommended default sizes.
+if not min_heap_size:
+    min_heap_size = "1024M"
+if not max_heap_size:
+    max_heap_size = "1024M"
+
+
 #juicy platform control <3
 if sys.platform == 'win32':
     platform_command = ['cmd', '/k', f'java -Xms{min_heap_size} -Xmx{max_heap_size} -jar {server_jar} nogui']
 else:
-    #assuming server already exists and eula has been agreed too and server heap size stuff has been set up already, etc.
-    platform_command = ['java', '-jar', f'{server_jar}', 'nogui']
+    platform_command = ['java', f'-Xmx{max_heap_size}', f'-Xms{min_heap_size}', '-jar', f'{server_jar}', 'nogui']
 
 
 
@@ -270,7 +276,7 @@ async def whitelist_remove(interaction: discord.Interaction, user_name: str):
 
 
 @client.tree.command(description="Ban a user from the MC server.")
-async def mcban(interaction: discord.Interaction, user_name: str):
+async def ban(interaction: discord.Interaction, user_name: str):
     if not logging_channel_id:
         log_channel = interaction.channel
     else:
