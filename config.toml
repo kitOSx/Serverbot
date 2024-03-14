@@ -1,4 +1,13 @@
-token="" # you know what goes here. ~~the bot's token~~
-server_jar="" # server.jar file here. (files and everything will be saved to this current folder.)
-discord_guild = #server ID here.
-logging_channel = #logging channel ID here.
+# Bot token
+token=""
+
+# Path to server.jar 
+server_jar = ""
+
+# Your discord server ID and logging channel ID 
+discord_guild = 
+logging_channel = 
+
+# Set your heap limits, usually I'd do 6G or 8G for both of them, depending on mods and player count.
+max_heap_size = ""
+min_heap_size = ""
