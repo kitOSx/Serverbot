@@ -5,6 +5,9 @@ If you use Linux, you probably already know what to do.
 Be sure to add your own Bot key and directory to ensure it actually runs.
 
 All so we can control it without having access to the computer running the server / having an admin on the server or having to SSH into the server.
+__ __
+
+<br>
 
 # Commands
 Use /start to start the server
@@ -18,9 +21,17 @@ Use /restart to restart the server
 /ban (playername) to ban a player
 
 /unban (playername) to unban a player.
+__ __
 
+<br>
+<br>
 
 # TODO
-  - Add embeds. (make it look prettier)
   - Work on bug fixes and compatibility issues.
   - Add more commands.
+__ __
+
+<br>
+
+# Special thanks
+@therealOri for further improvements and bugfixes (also for making my ass code look readable)
