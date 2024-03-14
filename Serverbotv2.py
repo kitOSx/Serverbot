@@ -5,6 +5,8 @@ import subprocess
 import tomllib
 import sys
 import asyncio
+import datetime
+
 
 
 
@@ -23,6 +25,14 @@ TOKEN = config["token"]
 server_jar = config["server_jar"]
 guild_id = config["discord_guild"]
 GUILD = discord.Object(id=guild_id)
+logging_channel_id = config["logging_channel"]
+
+
+#embed colors
+hex_red=0xFF0000
+hex_green=0x0AC700
+hex_yellow=0xFFF000 # I also like -> 0xf4c50b
+
 
 
 # Global variable to store the subprocess handle for server management
@@ -80,25 +90,27 @@ async def on_ready():
 
 @client.tree.command(description='Start Minecraft Server.')
 async def start(interaction: discord.Interaction):
+    # If you don't provide a channel ID for sending logs, it will just use the channel that you sent the command in.
+    if not logging_channel_id:
+        log_channel = interaction.channel
+    else:
+        log_channel = client.get_channel(logging_channel_id)
     global subprocess_handle
-    channel = interaction.channel
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("Sorry, you don't have permission to use this command.", ephemeral=True) #ephemeral = only visible by the user that ran the command.
         return
 
     # Attempt to run the server
-    await interaction.response.send_message("Server Attempting to start!")
+    await interaction.response.send_message("Attempting to start server!", ephemeral=True)
     subprocess_handle = subprocess.Popen(
         platform_command,
         stdin=subprocess.PIPE,
         text=True
     )
     print("Running 'start' command.")
-    await asyncio.sleep(5)  # Wait for server to initialize
-    await channel.send("Server started, loading world...")
-    await asyncio.sleep(5)  # Further wait for server setup
-    await channel.send("Server up, standing by.")
-    print("Server started!")
+    await asyncio.sleep(10) # Wait for server to initialize and setup.
+    start_embed = discord.Embed(title="MC Server Status", description='Server has been started and is Online!', colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
+    await log_channel.send(embed=start_embed)
 
 
 
@@ -107,26 +119,36 @@ async def start(interaction: discord.Interaction):
 
 @client.tree.command(description="Stop Minecraft Server.")
 async def stop(interaction: discord.Interaction):
+    if not logging_channel_id:
+        log_channel = interaction.channel
+    else:
+        log_channel = client.get_channel(logging_channel_id)
     global subprocess_handle
-    channel = interaction.channel
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("Sorry, you don't have permission to use this command.", ephemeral=True)
         return
 
     # Stop the server if it's running
     if subprocess_handle:
-        await interaction.response.send_message(f'Attempting to stop. subprocess_handle: "{subprocess_handle}"')
+        await interaction.response.send_message(f'Attempting to stop server.', ephemeral=True)
+        print(f'Stopping subprocess_handle: "{subprocess_handle}"')
         subprocess_handle.stdin.write("stop\n")
         subprocess_handle.stdin.flush()
 
         await asyncio.sleep(5)  # Allow time for server data saving
         subprocess_handle.stdin.close()  # No more commands, close stdin
-        await channel.send("Server saving chunks...")
+
+        wait_embed = discord.Embed(title="MC Server Status", description='Server saving chunks...', colour=hex_yellow, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        waiting_msg = await log_channel.send(embed=wait_embed)
         await asyncio.to_thread(subprocess_handle.wait) #wait for all chunks to be saved first. (to avoid chunk errors and chunks being missplaced)
-        await channel.send("Server stopped!")
+
+        stop_embed = discord.Embed(title="MC Server Status", description="Server has stopped!", colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        await waiting_msg.edit(content='', embed=stop_embed)
         subprocess_handle = None
     else:
-        await channel.send("No server found.")
+        await interaction.response.send_message('Server Offline.', ephemeral=True) # these interaction responses are for dealing with when you used the command. So it completes instead of errors.
+        err_embed = discord.Embed(title="MC Server Status", description='Server is not running.', colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        await log_channel.send(embed=err_embed)
 
 
 
@@ -135,6 +157,10 @@ async def stop(interaction: discord.Interaction):
 
 @client.tree.command(description="Restarts Minecraft Server.")
 async def restart(interaction: discord.Interaction):
+    if not logging_channel_id:
+        log_channel = interaction.channel
+    else:
+        log_channel = client.get_channel(logging_channel_id)
     global subprocess_handle
     channel = interaction.channel
     if not interaction.user.guild_permissions.administrator:
@@ -143,32 +169,41 @@ async def restart(interaction: discord.Interaction):
 
     # Stop the server if it's running
     if subprocess_handle:
-        await interaction.response.send_message(f"Attempting to restart. subprocess_handle: `{subprocess_handle}`")
+        await interaction.response.send_message("Attempting to restart server.", ephemeral=True)
+        print(f'stopping subprocess_handle: "{subprocess_handle}"')
         subprocess_handle.stdin.write("stop\n")
         subprocess_handle.stdin.flush()
         await asyncio.sleep(5)
         subprocess_handle.stdin.close()
-        await channel.send("Server saving chunks...")
+        wait_embed = discord.Embed(title="MC Server Status", description='Server saving chunks...', colour=hex_yellow, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        waiting_msg = await log_channel.send(embed=wait_embed)
         await asyncio.to_thread(subprocess_handle.wait)
         subprocess_handle = None
-        await channel.send("Server stopped, restarting now...")
+
+
+        stop_embed = discord.Embed(title="MC Server Status", description="Server stopped, restarting now...", colour=hex_yellow, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        stop_msg = await waiting_msg.edit(content='', embed=stop_embed)
         print("Server stopped.")
     else:
-        await channel.send("No server found to restart, starting a new one...")
+        stop_msg=None
+        await interaction.response.send_message("No server found to restart, starting a new one...", ephemeral=True)
 
     # Restart the server
-    await channel.send("Server Attempting to restart!")
     subprocess_handle = subprocess.Popen(
         platform_command,
         stdin=subprocess.PIPE,
         text=True
     )
     print("Restarting the server.")
-    await asyncio.sleep(5)
-    await channel.send("Server restarted, loading world...")
-    await asyncio.sleep(5)
-    await channel.send("Server up, standing by.")
+    await asyncio.sleep(10)
     print("Server restarted.")
+    if not stop_msg:
+        restart_embed = discord.Embed(title="MC Server Status", description="Server has been started and is Online!", colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        await log_channel.send(embed=restart_embed)
+    else:
+        restart_embed = discord.Embed(title="MC Server Status", description="Server restarted!", colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        await stop_msg.edit(content='', embed=restart_embed)
+
 
 
 
@@ -176,6 +211,10 @@ async def restart(interaction: discord.Interaction):
 
 @client.tree.command(description="Add user to MC server whitelist.")
 async def whitelist_add(interaction: discord.Interaction, user_name: str):
+    if not logging_channel_id:
+        log_channel = interaction.channel
+    else:
+        log_channel = client.get_channel(logging_channel_id)
     global subprocess_handle
     channel = interaction.channel
     if not interaction.user.guild_permissions.administrator:
@@ -188,9 +227,12 @@ async def whitelist_add(interaction: discord.Interaction, user_name: str):
         command = f"whitelist add {user_name}\n"
         subprocess_handle.stdin.write(command)
         subprocess_handle.stdin.flush()
-        await channel.send(f"User {user_name} has been added to the whitelist.")
+        wla_embed = discord.Embed(title="MC Server Command", description=f"User {user_name} has been added to the whitelist.", colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        await log_channel.send(embed=wla_embed)
     else:
-        await channel.send("Server is not running.")
+        await interaction.response.send_message('Server Offline.', ephemeral=True)
+        err_embed = discord.Embed(title="MC Server Status", description='Server is not running.', colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        await log_channel.send(embed=err_embed)
 
 
 
@@ -198,6 +240,10 @@ async def whitelist_add(interaction: discord.Interaction, user_name: str):
 
 @client.tree.command(description="Remove user from MC server whitelist.")
 async def whitelist_remove(interaction: discord.Interaction, user_name: str):
+    if not logging_channel_id:
+        log_channel = interaction.channel
+    else:
+        log_channel = client.get_channel(logging_channel_id)
     global subprocess_handle
     channel = interaction.channel
     if not interaction.user.guild_permissions.administrator:
@@ -210,16 +256,23 @@ async def whitelist_remove(interaction: discord.Interaction, user_name: str):
         command = f"whitelist remove {user_name}\n"
         subprocess_handle.stdin.write(command)
         subprocess_handle.stdin.flush()
-        await channel.send(f"User {user_name} has been removed from the whitelist.")
+        wlr_embed = discord.Embed(title="MC Server Command", description=f"User {user_name} has been removed from the whitelist.", colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        await log_channel.send(embed=wlr_embed)
     else:
-        await channel.send("Server is not running.")
+        await interaction.response.send_message('Server Offline.', ephemeral=True)
+        err_embed = discord.Embed(title="MC Server Status", description='Server is not running.', colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        await log_channel.send(embed=err_embed)
 
 
 
 
 
 @client.tree.command(description="Ban a user from the MC server.")
-async def ban(interaction: discord.Interaction, user_name: str):
+async def mcban(interaction: discord.Interaction, user_name: str):
+    if not logging_channel_id:
+        log_channel = interaction.channel
+    else:
+        log_channel = client.get_channel(logging_channel_id)
     global subprocess_handle
     channel = interaction.channel
     if not interaction.user.guild_permissions.administrator:
@@ -232,9 +285,12 @@ async def ban(interaction: discord.Interaction, user_name: str):
         command = f"ban {user_name}\n"
         subprocess_handle.stdin.write(command)
         subprocess_handle.stdin.flush()
-        await channel.send(f"{user_name} has been banned.")
+        mc_ban_embed = discord.Embed(title="MC Server Command", description=f"{user_name} has been banned.", colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        await log_channel.send(embed=mc_ban_embed)
     else:
-        await channel.send("Server is not running.")
+        await interaction.response.send_message('Server Offline.', ephemeral=True)
+        err_embed = discord.Embed(title="MC Server Status", description='Server is not running.', colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        await log_channel.send(embed=err_embed)
 
 
 
@@ -242,6 +298,10 @@ async def ban(interaction: discord.Interaction, user_name: str):
 
 @client.tree.command(description="Unban user from the MC server.")
 async def unban(interaction: discord.Interaction, user_name: str):
+    if not logging_channel_id:
+        log_channel = interaction.channel
+    else:
+        log_channel = client.get_channel(logging_channel_id)
     global subprocess_handle
     channel = interaction.channel
     if not interaction.user.guild_permissions.administrator:
@@ -254,9 +314,12 @@ async def unban(interaction: discord.Interaction, user_name: str):
         command = f"pardon {user_name}\n"
         subprocess_handle.stdin.write(command)
         subprocess_handle.stdin.flush()
-        await channel.send(f"{user_name} has been unbanned.")
+        mc_pardon_embed = discord.Embed(title="MC Server Command", description=f"{user_name} has been unbanned.", colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        await log_channel.send(embed=mc_pardon_embed)
     else:
-        await channel.send("Server is not running.")
+        await interaction.response.send_message('Server Offline.', ephemeral=True)
+        err_embed = discord.Embed(title="MC Server Status", description='Server is not running.', colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        await log_channel.send(embed=err_embed)
 
 
 
