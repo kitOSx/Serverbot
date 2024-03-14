@@ -9,6 +9,9 @@ __ __
 
 <br>
 
+# Whats new? 
+Added a way to change heap sizes through the config. I was using a .bat file to run the server but thats too much.
+
 # Commands
 Use /start to start the server
 
