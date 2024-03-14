@@ -29,9 +29,6 @@ __ __
 # TODO
   - Work on bug fixes and compatibility issues.
   - Add more commands.
-__ __
-
-<br>
 
 # Special thanks
 @therealOri for further improvements and bugfixes (also for making my ass code look readable)
