@@ -9,7 +9,6 @@ import datetime
 
 
 
-
 def clear():
     os.system("cls||clear") #cls for windows clear for linux/unix.
 
@@ -113,12 +112,14 @@ async def start(interaction: discord.Interaction):
     subprocess_handle = subprocess.Popen(
         platform_command,
         stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
         text=True
     )
     print("Running 'start' command.")
     await asyncio.sleep(10) # Wait for server to initialize and setup.
     start_embed = discord.Embed(title="MC Server Status", description='Server has been started and is Online!', colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
     await log_channel.send(embed=start_embed)
+    print("Server Online!")
 
 
 
@@ -146,6 +147,7 @@ async def stop(interaction: discord.Interaction):
         await asyncio.sleep(5)  # Allow time for server data saving
         subprocess_handle.stdin.close()  # No more commands, close stdin
 
+        print("Saving chunks...")
         wait_embed = discord.Embed(title="MC Server Status", description='Server saving chunks...', colour=hex_yellow, timestamp=datetime.datetime.now(datetime.timezone.utc))
         waiting_msg = await log_channel.send(embed=wait_embed)
         await asyncio.to_thread(subprocess_handle.wait) #wait for all chunks to be saved first. (to avoid chunk errors and chunks being missplaced)
@@ -153,6 +155,7 @@ async def stop(interaction: discord.Interaction):
         stop_embed = discord.Embed(title="MC Server Status", description="Server has stopped!", colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
         await waiting_msg.edit(content='', embed=stop_embed)
         subprocess_handle = None
+        print("Server Offline.")
     else:
         await interaction.response.send_message('Server Offline.', ephemeral=True) # these interaction responses are for dealing with when you used the command. So it completes instead of errors.
         err_embed = discord.Embed(title="MC Server Status", description='Server is not running.', colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
@@ -183,6 +186,7 @@ async def restart(interaction: discord.Interaction):
         subprocess_handle.stdin.flush()
         await asyncio.sleep(5)
         subprocess_handle.stdin.close()
+        print("Saving chunks...")
         wait_embed = discord.Embed(title="MC Server Status", description='Server saving chunks...', colour=hex_yellow, timestamp=datetime.datetime.now(datetime.timezone.utc))
         waiting_msg = await log_channel.send(embed=wait_embed)
         await asyncio.to_thread(subprocess_handle.wait)
@@ -200,17 +204,19 @@ async def restart(interaction: discord.Interaction):
     subprocess_handle = subprocess.Popen(
         platform_command,
         stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
         text=True
     )
     print("Restarting the server.")
     await asyncio.sleep(10)
-    print("Server restarted.")
     if not stop_msg:
         restart_embed = discord.Embed(title="MC Server Status", description="Server has been started and is Online!", colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
         await log_channel.send(embed=restart_embed)
+        print("Server restarted and Online!")
     else:
         restart_embed = discord.Embed(title="MC Server Status", description="Server restarted!", colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
         await stop_msg.edit(content='', embed=restart_embed)
+        print("Server restarted and Online!")
 
 
 
@@ -330,6 +336,68 @@ async def unban(interaction: discord.Interaction, user_name: str):
         await log_channel.send(embed=err_embed)
 
 
+
+
+
+
+
+
+
+@client.tree.command(description="Lists users on the server.")
+async def mclist(interaction: discord.Interaction):
+    global subprocess_handle
+
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("Sorry, you don't have permission to use this command.", ephemeral=True)
+        return
+
+    if subprocess_handle:
+        await interaction.response.defer()
+        command = "list\n"
+        subprocess_handle.stdin.write(command)
+        subprocess_handle.stdin.flush()
+
+        # Read multiple lines of output printed to terminal.
+        outputs = []
+        while True:
+            output = subprocess_handle.stdout.readline()
+            if not output:
+                break
+            outputs.append(output.strip())
+
+            # Look for the specific "players online" line.
+            if "players online" in output.lower():
+                break
+
+        # Find the line with the list of users.
+        user_list_line = next((line for line in outputs if "players online" in line.lower()), "No users found")
+
+        # Extract the relevant information.
+        if "players online:" in user_list_line:
+            parts = user_list_line.split("players online:")
+            player_count = parts[0].split("There are")[1].strip().split(" of ")[0]
+            max_players = parts[0].split("max of")[1].strip().split(" ")[0]
+            players = parts[1].strip()
+
+            #make it pretty
+            description = (
+                "📊 - **Player Stats**\n"
+                f"Currently Online: **{player_count}**\n"
+                f"Max Players: **{max_players}**\n\n"
+                "👥 - **Online Players**\n"
+                f"```{players if players else 'No players online'}```"
+            )
+        else:
+            description = "❌ Unable to fetch player list ❌"
+
+        lst_embed = discord.Embed(title="List of Online Players", description=description, colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        lst_embed.set_footer(text="Last Updated")
+
+        await interaction.followup.send(embed=lst_embed)
+    else:
+        err_embed = discord.Embed(title="❌ Server Offline ❌", description="The Minecraft server is currently not running.", colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        err_embed.set_footer(text="Last Checked")
+        await interaction.response.send_message(embed=err_embed, ephemeral=True)
 
 
 
