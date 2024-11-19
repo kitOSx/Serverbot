@@ -379,7 +379,7 @@ async def mclist(interaction: discord.Interaction):
             max_players = parts[0].split("max of")[1].strip().split(" ")[0]
             players = parts[1].strip()
 
-            #make it pretty
+            #Make it pretty.
             description = (
                 "📊 - **Player Stats**\n"
                 f"Currently Online: **{player_count}**\n"
