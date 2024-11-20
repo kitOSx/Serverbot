@@ -10,30 +10,38 @@ __ __
 <br>
 
 # Whats new? 
-Work in progress: Newest edition is the /mclist command. Lists online players.
+Added commands for providing and removing operator privlages, a command to list out current players.
 
 # Commands
-Use /start to start the server
+Use /start to start the server.
 
-Use /stop to stop the server
+Use /stop to stop the server.
 
-Use /restart to restart the server
+Use /restart to restart the server.
 
-/whitelist_add (playername) to whitelist a player
+/whitelist_add (playername) to whitelist a player.
 
-/ban (playername) to ban a player
+/whitelist_remove (playername) to remove a player from the whitelist.
+
+/ban (playername) to ban a player.
 
 /unban (playername) to unban a player.
 
-/mclist to list players currently on the server.
+/mclist to list players currently online, if any.
+
+/op to give a player operator commands.
+
+/deop to remove a player's operator commands. 
 __ __
 
 <br>
 <br>
 
 # TODO
-  - Work on bug fixes and compatibility issues.
-  - Add more commands.
+  - Add commands for scheduled restarts.
+  - Add a command for backups.
+  - Add a command for /say (for serverwide broadcasts.)
+  - Somehow make discord and minecraft chat sync to add cross communication. 
 
 # Special thanks
-@therealOri for further improvements and bugfixes (also for making my ass code look readable)
+@therealOri for major contributions. 
