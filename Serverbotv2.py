@@ -121,9 +121,6 @@ async def start(interaction: discord.Interaction):
 
 
 
-
-
-
 @client.tree.command(description="Stop Minecraft Server.")
 async def stop(interaction: discord.Interaction):
     if not logging_channel_id:
@@ -158,9 +155,6 @@ async def stop(interaction: discord.Interaction):
         await interaction.response.send_message('Server Offline.', ephemeral=True) # these interaction responses are for dealing with when you used the command. So it completes instead of errors.
         err_embed = discord.Embed(title="MC Server Status", description='Server is not running.', colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
         await log_channel.send(embed=err_embed)
-
-
-
 
 
 
@@ -218,9 +212,6 @@ async def restart(interaction: discord.Interaction):
 
 
 
-
-
-
 @client.tree.command(description="Add user to MC server whitelist.")
 async def whitelist_add(interaction: discord.Interaction, user_name: str):
     if not logging_channel_id:
@@ -245,9 +236,6 @@ async def whitelist_add(interaction: discord.Interaction, user_name: str):
         await interaction.response.send_message('Server Offline.', ephemeral=True)
         err_embed = discord.Embed(title="MC Server Status", description='Server is not running.', colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
         await log_channel.send(embed=err_embed)
-
-
-
 
 
 @client.tree.command(description="Remove user from MC server whitelist.")
@@ -276,9 +264,6 @@ async def whitelist_remove(interaction: discord.Interaction, user_name: str):
         await log_channel.send(embed=err_embed)
 
 
-
-
-
 @client.tree.command(description="Ban a user from the MC server.")
 async def ban(interaction: discord.Interaction, user_name: str):
     if not logging_channel_id:
@@ -305,9 +290,6 @@ async def ban(interaction: discord.Interaction, user_name: str):
         await log_channel.send(embed=err_embed)
 
 
-
-
-
 @client.tree.command(description="Unban user from the MC server.")
 async def unban(interaction: discord.Interaction, user_name: str):
     if not logging_channel_id:
@@ -332,13 +314,6 @@ async def unban(interaction: discord.Interaction, user_name: str):
         await interaction.response.send_message('Server Offline.', ephemeral=True)
         err_embed = discord.Embed(title="MC Server Status", description='Server is not running.', colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
         await log_channel.send(embed=err_embed)
-
-
-
-
-
-
-
 
 
 @client.tree.command(description="Lists users on the server.")
@@ -398,7 +373,56 @@ async def mclist(interaction: discord.Interaction):
         await interaction.response.send_message(embed=err_embed, ephemeral=True)
 
 
+@client.tree.command(description="Adds player to operator list.")
+async def op(interaction: discord.Interaction, user_name: str):
+    if not logging_channel_id:
+        log_channel = interaction.channel
+    else:
+        log_channel = client.get_channel(logging_channel_id)
+    global subprocess_handle
+    channel = interaction.channel
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("Sorry, you don't have permission to use this command.", ephemeral=True)
+        return
 
+    if subprocess_handle:
+        await interaction.response.send_message(f'Adding "{user_name}" to OP list...', ephemeral=True)
+        # Send the op command to the server
+        command = f"op {user_name}\n"
+        subprocess_handle.stdin.write(command)
+        subprocess_handle.stdin.flush()
+        mc_pardon_embed = discord.Embed(title="OP", description=f"{user_name} has been set as an operator.", colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        await log_channel.send(embed=mc_pardon_embed)
+    else:
+        await interaction.response.send_message('Server Offline.', ephemeral=True)
+        err_embed = discord.Embed(title="MC Server Status", description='Server is not running.', colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        await log_channel.send(embed=op_embed)
+
+
+@client.tree.command(description="Removes player to operator list.")
+async def deop(interaction: discord.Interaction, user_name: str):
+    if not logging_channel_id:
+        log_channel = interaction.channel
+    else:
+        log_channel = client.get_channel(logging_channel_id)
+    global subprocess_handle
+    channel = interaction.channel
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("Sorry, you don't have permission to use this command.", ephemeral=True)
+        return
+
+    if subprocess_handle:
+        await interaction.response.send_message(f'Removing "{user_name}" from OP list...', ephemeral=True)
+        # Send the op command to the server
+        command = f"deop {user_name}\n"
+        subprocess_handle.stdin.write(command)
+        subprocess_handle.stdin.flush()
+        mc_pardon_embed = discord.Embed(title="DeOP", description=f"{user_name} has been removed as an operator.", colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        await log_channel.send(embed=mc_pardon_embed)
+    else:
+        await interaction.response.send_message('Server Offline.', ephemeral=True)
+        err_embed = discord.Embed(title="MC Server Status", description='Server is not running.', colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        await log_channel.send(embed=op_embed)
 
 # Run the bot
 client.run(TOKEN, reconnect=True)
