@@ -10,7 +10,7 @@ __ __
 <br>
 
 # Whats new? 
-Added a way to change heap sizes through the config. I was using a .bat file to run the server but thats too much.
+Work in progress: Newest edition is the /mclist command. Lists online players.
 
 # Commands
 Use /start to start the server
@@ -24,6 +24,8 @@ Use /restart to restart the server
 /ban (playername) to ban a player
 
 /unban (playername) to unban a player.
+
+/mclist to list players currently on the server.
 __ __
 
 <br>
