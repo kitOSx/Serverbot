@@ -88,11 +88,9 @@ async def on_ready():
     clear()
     print(f'Logged in as {client.user} (ID: {client.user.id})')
     print('------')
-
-
-
-
-
+    print('Registered Commands:')
+    for command in client.tree.get_commands():
+        print(f"- {command.name}: {command.description}")
 
 
 @client.tree.command(description='Start Minecraft Server.')
