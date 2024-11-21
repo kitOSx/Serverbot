@@ -11,3 +11,14 @@ logging_channel =
 # Set your heap limits, usually I'd do 6G or 8G for both of them, depending on mods and player count.
 max_heap_size = ""
 min_heap_size = ""
+
+# Server backup time in hrs. 24 = 1 time every 24hrs.
+create_backups = true
+backup_time = 72 # 3 days
+to_save = ['./world', './logs/latest.log', 'server.properties', 'usercache.json', 'whitelist.json', 'banned-ips.json', 'banned-players.json', 'ops.json', './libraries']
+backup_folder = './backups'
+make_backup_on_start = false # When using /start, create a backup instantly or not.
+
+# Scheduled Restarts
+create_restarts = true
+restart_after_time = 12 # 1 time every 12hrs.
