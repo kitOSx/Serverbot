@@ -44,7 +44,8 @@ __ __
   - [x] Add a command for backups.
   - [x] Add a command for /say (for serverwide broadcasts.)
   - [] Somehow make discord and minecraft chat sync to add cross communication. 
-  - [] Send/say messages to the server before updating or restarting. (15min warning and 10s countdown)
+  - [x] Send/say messages to the server before updating or restarting. (15min warning and 10s countdown)
+  - [x] Add system messages sent to the server when stopping, restarting, and making backups.
 
 # Special thanks
 @therealOri for major contributions. 
