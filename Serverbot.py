@@ -6,7 +6,6 @@ import tomllib
 import sys
 import asyncio
 import datetime
-
 import shutil
 import tempfile
 import zipfile
@@ -89,6 +88,51 @@ client = ServerBot(intents=intents) # "client" can be changed to anything, but y
 
 
 
+async def async_timer(total_time, warn_minutes=None, svr_msg=None):
+    global subprocess_handle
+    if warn_minutes is None:
+        warn_minutes = []
+
+    warn_minutes = sorted(warn_minutes, reverse=True)
+    for warn_min in warn_minutes:
+        warn_seconds = warn_min * 60
+        if warn_seconds < total_time:
+            await asyncio.sleep(total_time - warn_seconds)
+            timer_warning = svr_msg + f'§6{warn_min}§r minutes.'
+            tw_command = f"say {timer_warning}\n"
+            subprocess_handle.stdin.write(tw_command)
+            subprocess_handle.stdin.flush()
+
+    # Wait remaining time before 10-second countdown. After we give the warning, it needs to keep counting and not skip straight to the 10s countdown.
+    remaining_time = total_time - sum(m * 60 for m in warn_minutes if m * 60 < total_time)
+    if remaining_time > 10:
+        await asyncio.sleep(remaining_time - 10)
+
+    timer_notice = f"§4[Notice!]:§r Server is restarting, will be back up shortly..."
+    tn_command = f"say {timer_notice}\n"
+    subprocess_handle.stdin.write(tn_command)
+    subprocess_handle.stdin.flush()
+
+    for i in range(10, 0, -1):
+        await asyncio.sleep(1)
+        count_down = f"§4{i}..."
+        cd_command = f"say {count_down}\n"
+        subprocess_handle.stdin.write(cd_command)
+        subprocess_handle.stdin.flush()
+
+    final_notice = f"§4Restarting..."
+    fn_command = f"say {final_notice}\n"
+    subprocess_handle.stdin.write(fn_command)
+    subprocess_handle.stdin.flush()
+    await asyncio.sleep(4)
+
+
+
+
+
+
+
+
 def backup_files(paths, backup_folder=None):
     temp_dir = tempfile.mkdtemp()
     try:
@@ -154,11 +198,9 @@ async def scheduled_backup(log_channel):
                 subprocess_handle = None
                 print("Server Offline.")
 
-                # Make and save backup.
                 backup_zip_path = backup_files(to_save, './backups')
                 print(f"Backup created: {backup_zip_path}")
 
-                # Start server again
                 subprocess_handle = subprocess.Popen(
                     platform_command,
                     stdin=subprocess.PIPE,
@@ -173,7 +215,8 @@ async def scheduled_backup(log_channel):
                 print("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n\n")
 
             sleepy_time = backup_time * 60 * 60
-            await asyncio.sleep(sleepy_time) # After X-hrs later, do this whole thing again.
+            warning_message = f"§4[Warning!]:§r Server will create a backup and restart in: "
+            await async_timer(total_time=sleepy_time, warn_minutes=[15], svr_msg=warning_message) # After X-hrs later, do this whole thing again.
             flg = 1
 
 
@@ -224,7 +267,8 @@ async def scheduled_restarts(log_channel):
                 print("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n\n")
 
             restart_timer = restart_time * 60 * 60
-            await asyncio.sleep(restart_timer)
+            warning_message = f"§4[Warning!]:§r Server will restart in: "
+            await async_timer(total_time=restart_timer, warn_minutes=[15], svr_msg=warning_message)
             flg=1
 
 
@@ -298,6 +342,18 @@ async def stop(interaction: discord.Interaction):
     # Stop the server if it's running
     if subprocess_handle:
         await interaction.response.send_message(f'Attempting to stop server.', ephemeral=True)
+
+        ss_command = f"say §4[Warning!]§r A server OP is stopping the server.\nShutting down in...\n"
+        subprocess_handle.stdin.write(ss_command)
+        subprocess_handle.stdin.flush()
+        for i in range(5, 0, -1):
+            await asyncio.sleep(1)
+            sscd_command = f"say §4{i}...\n"
+            subprocess_handle.stdin.write(sscd_command)
+            subprocess_handle.stdin.flush()
+        await asyncio.sleep(4)
+
+
         print(f'Stopping subprocess_handle: "{subprocess_handle}"')
         subprocess_handle.stdin.write("stop\n")
         subprocess_handle.stdin.flush()
@@ -335,6 +391,17 @@ async def restart(interaction: discord.Interaction):
     # Stop the server if it's running
     if subprocess_handle:
         await interaction.response.send_message("Attempting to restart server.", ephemeral=True)
+
+        rs_command = f"say §4[Warning!]§r A server OP is manually restarting the server.\nRestarting in...\n"
+        subprocess_handle.stdin.write(rs_command)
+        subprocess_handle.stdin.flush()
+        for i in range(5, 0, -1):
+            await asyncio.sleep(1)
+            rscd_command = f"say §4{i}...\n"
+            subprocess_handle.stdin.write(rscd_command)
+            subprocess_handle.stdin.flush()
+        await asyncio.sleep(4)
+
         print(f'stopping subprocess_handle: "{subprocess_handle}"')
         subprocess_handle.stdin.write("stop\n")
         subprocess_handle.stdin.flush()
