@@ -6,8 +6,9 @@ import tomllib
 import sys
 import asyncio
 import datetime
-
-
+import shutil
+import tempfile
+import zipfile
 
 def clear():
     os.system("cls||clear") #cls for windows clear for linux/unix.
@@ -28,6 +29,15 @@ guild_id = config["discord_guild"]
 GUILD = discord.Object(id=guild_id)
 logging_channel_id = config["logging_channel"]
 
+create_backups = config['create_backups']
+backup_time = config['backup_time']
+to_save = config['to_save']
+backup_folder = config['backup_folder']
+backup_on_start = config['make_backup_on_start']
+create_restarts = config['create_restarts']
+restart_time = config['restart_after_time']
+
+
 
 #embed colors
 hex_red=0xFF0000
@@ -38,7 +48,6 @@ hex_yellow=0xFFF000 # I also like -> 0xf4c50b
 
 # Global variable to store the subprocess handle for server management
 subprocess_handle = None
-
 
 
 
@@ -79,6 +88,188 @@ client = ServerBot(intents=intents) # "client" can be changed to anything, but y
 
 
 
+async def async_timer(total_time, warn_minutes=None, svr_msg=None):
+    global subprocess_handle
+    if warn_minutes is None:
+        warn_minutes = []
+
+    warn_minutes = sorted(warn_minutes, reverse=True)
+    for warn_min in warn_minutes:
+        warn_seconds = warn_min * 60
+        if warn_seconds < total_time:
+            await asyncio.sleep(total_time - warn_seconds)
+            timer_warning = svr_msg + f'§6{warn_min}§r minutes.'
+            tw_command = f"say {timer_warning}\n"
+            subprocess_handle.stdin.write(tw_command)
+            subprocess_handle.stdin.flush()
+
+    # Wait remaining time before 10-second countdown. After we give the warning, it needs to keep counting and not skip straight to the 10s countdown.
+    remaining_time = total_time - sum(m * 60 for m in warn_minutes if m * 60 < total_time)
+    if remaining_time > 10:
+        await asyncio.sleep(remaining_time - 10)
+
+    timer_notice = f"§4[Notice!]:§r Server is restarting, will be back up shortly..."
+    tn_command = f"say {timer_notice}\n"
+    subprocess_handle.stdin.write(tn_command)
+    subprocess_handle.stdin.flush()
+
+    for i in range(10, 0, -1):
+        await asyncio.sleep(1)
+        count_down = f"§4{i}..."
+        cd_command = f"say {count_down}\n"
+        subprocess_handle.stdin.write(cd_command)
+        subprocess_handle.stdin.flush()
+
+    final_notice = f"§4Restarting..."
+    fn_command = f"say {final_notice}\n"
+    subprocess_handle.stdin.write(fn_command)
+    subprocess_handle.stdin.flush()
+    await asyncio.sleep(4)
+
+
+
+
+
+
+
+
+def backup_files(paths, backup_folder=None):
+    temp_dir = tempfile.mkdtemp()
+    try:
+        # Create backup folder if one is not specified.
+        if backup_folder is None:
+            backup_folder = os.path.join(os.getcwd(), 'backups')
+
+        os.makedirs(backup_folder, exist_ok=True)
+        for path in paths:
+            if os.path.exists(path):
+                base_name = os.path.basename(path)
+                dest_path = os.path.join(temp_dir, base_name)
+
+                if os.path.isdir(path):
+                    shutil.copytree(path, dest_path)
+                else:
+                    shutil.copy2(path, dest_path)
+
+        # Create timestamped ZIP archive.
+        timestamp = datetime.datetime.now().strftime("%m%d%Y_%I%M%S") #Murica.
+        zip_filename = f"backup_{timestamp}.zip"
+        zip_path = os.path.join(backup_folder, zip_filename)
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for root, _, files in os.walk(temp_dir):
+                for f in files:
+                    file_path = os.path.join(root, f)
+                    arcname = os.path.relpath(file_path, temp_dir)
+                    zipf.write(file_path, arcname=arcname)
+        return zip_path
+
+    finally:
+        # Always clean up the temporary directory
+        print("Cleaning up...")
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+async def scheduled_backup(log_channel):
+    global subprocess_handle
+    flg = 0
+
+    while True:
+        if not subprocess_handle:
+            break # When we type /stop, we want this to also stop. We have to wait for the timer still with this method, but it works and doesn't make more backups.
+        else:
+            if backup_on_start == False and flg == 0: # Do NOT touch flg.
+                pass
+            else:
+                print("\n-=-=-=-=-=-=-=-=-=-=-=-=- ...Starting Backup... -=-=-=-=-=-=-=-=-=-=-=-=-=-=-")
+                print(f'Stopping subprocess_handle: "{subprocess_handle}"')
+                subprocess_handle.stdin.write("stop\n")
+                subprocess_handle.stdin.flush()
+
+                await asyncio.sleep(5)
+                subprocess_handle.stdin.close()
+
+                print("Saving chunks...")
+                sb_wait_embed = discord.Embed(title="MC Server Status", description='Server saving chunks...', colour=hex_yellow, timestamp=datetime.datetime.now(datetime.timezone.utc))
+                sb_waiting_msg = await log_channel.send(embed=sb_wait_embed)
+                await asyncio.to_thread(subprocess_handle.wait)
+
+                sb_stop_embed = discord.Embed(title="MC Server Status", description="Server has stopped! - Making a backup...", colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
+                await sb_waiting_msg.edit(content='', embed=sb_stop_embed)
+                subprocess_handle = None
+                print("Server Offline.")
+
+                backup_zip_path = backup_files(to_save, './backups')
+                print(f"Backup created: {backup_zip_path}")
+
+                subprocess_handle = subprocess.Popen(
+                    platform_command,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    text=True
+                )
+                print("Starting server...")
+                await asyncio.sleep(10)
+                sb_start_embed = discord.Embed(title="MC Server Status", description='Server has been started and is Online!', colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
+                await log_channel.send(embed=sb_start_embed)
+                print("Server Online!")
+                print("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n\n")
+
+            sleepy_time = backup_time * 60 * 60
+            warning_message = f"§4[Warning!]:§r Server will create a backup and restart in: "
+            await async_timer(total_time=sleepy_time, warn_minutes=[15], svr_msg=warning_message) # After X-hrs later, do this whole thing again.
+            flg = 1
+
+
+
+
+
+
+async def scheduled_restarts(log_channel):
+    global subprocess_handle
+    flg = 0
+    while True:
+        if not subprocess_handle:
+            break
+        else:
+            if flg == 0:
+                pass # Force the bot to wait the timer before restarting.
+            else:
+                print("\n-=-=-=-=-=-=-=-=-=-=-=-=- ...Restarting Server... -=-=-=-=-=-=-=-=-=-=-=-=-=-=-")
+                print(f'Stopping subprocess_handle: "{subprocess_handle}"')
+                subprocess_handle.stdin.write("stop\n")
+                subprocess_handle.stdin.flush()
+
+                await asyncio.sleep(5)
+                subprocess_handle.stdin.close()
+
+                print("Saving chunks...")
+                sr_wait_embed = discord.Embed(title="MC Server Status", description='Server saving chunks...', colour=hex_yellow, timestamp=datetime.datetime.now(datetime.timezone.utc))
+                sr_waiting_msg = await log_channel.send(embed=sr_wait_embed)
+                await asyncio.to_thread(subprocess_handle.wait)
+
+                sr_stop_embed = discord.Embed(title="MC Server Status", description="Server has stopped! - Restarting Server...", colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
+                await sr_waiting_msg.edit(content='', embed=sr_stop_embed)
+                subprocess_handle = None
+                print("Server Offline.")
+
+                # Start server again
+                subprocess_handle = subprocess.Popen(
+                    platform_command,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    text=True
+                )
+                print("Starting server...")
+                await asyncio.sleep(10)
+                sr_start_embed = discord.Embed(title="MC Server Status", description='Server has been restarted and is Online!', colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
+                await log_channel.send(embed=sr_start_embed)
+                print("Server restarted!")
+                print("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n\n")
+
+            restart_timer = restart_time * 60 * 60
+            warning_message = f"§4[Warning!]:§r Server will restart in: "
+            await async_timer(total_time=restart_timer, warn_minutes=[15], svr_msg=warning_message)
+            flg=1
 
 
 
@@ -91,6 +282,15 @@ async def on_ready():
     print('Registered Commands:')
     for command in client.tree.get_commands():
         print(f"- {command.name}: {command.description}")
+    print('\n')
+
+
+
+
+
+
+
+
 
 
 @client.tree.command(description='Start Minecraft Server.')
@@ -105,19 +305,26 @@ async def start(interaction: discord.Interaction):
         await interaction.response.send_message("Sorry, you don't have permission to use this command.", ephemeral=True) #ephemeral = only visible by the user that ran the command.
         return
 
-    # Attempt to run the server
-    await interaction.response.send_message("Attempting to start server!", ephemeral=True)
-    subprocess_handle = subprocess.Popen(
-        platform_command,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        text=True
-    )
-    print("Running 'start' command.")
-    await asyncio.sleep(10) # Wait for server to initialize and setup.
-    start_embed = discord.Embed(title="MC Server Status", description='Server has been started and is Online!', colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
-    await log_channel.send(embed=start_embed)
-    print("Server Online!")
+    if subprocess_handle:
+        await interaction.response.send_message('Server is already Online.', ephemeral=True, delete_after=10)
+    else:
+        # Attempt to run the server
+        await interaction.response.send_message("Attempting to start server!", ephemeral=True)
+        subprocess_handle = subprocess.Popen(
+            platform_command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True
+        )
+        print("Running 'start' command.")
+        await asyncio.sleep(10) # Wait for server to initialize and setup.
+        start_embed = discord.Embed(title="MC Server Status", description='Server has been started and is Online!', colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        await log_channel.send(embed=start_embed)
+        print("Server Online!")
+        if create_backups == True:
+            client.loop.create_task(scheduled_backup(log_channel))
+        if create_restarts == True:
+            client.loop.create_task(scheduled_restarts(log_channel))
 
 
 
@@ -135,6 +342,18 @@ async def stop(interaction: discord.Interaction):
     # Stop the server if it's running
     if subprocess_handle:
         await interaction.response.send_message(f'Attempting to stop server.', ephemeral=True)
+
+        ss_command = f"say §4[Warning!]§r A server OP is stopping the server.\nShutting down in...\n"
+        subprocess_handle.stdin.write(ss_command)
+        subprocess_handle.stdin.flush()
+        for i in range(5, 0, -1):
+            await asyncio.sleep(1)
+            sscd_command = f"say §4{i}...\n"
+            subprocess_handle.stdin.write(sscd_command)
+            subprocess_handle.stdin.flush()
+        await asyncio.sleep(4)
+
+
         print(f'Stopping subprocess_handle: "{subprocess_handle}"')
         subprocess_handle.stdin.write("stop\n")
         subprocess_handle.stdin.flush()
@@ -165,7 +384,6 @@ async def restart(interaction: discord.Interaction):
     else:
         log_channel = client.get_channel(logging_channel_id)
     global subprocess_handle
-    channel = interaction.channel
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("Sorry, you don't have permission to use this command.", ephemeral=True)
         return
@@ -173,6 +391,17 @@ async def restart(interaction: discord.Interaction):
     # Stop the server if it's running
     if subprocess_handle:
         await interaction.response.send_message("Attempting to restart server.", ephemeral=True)
+
+        rs_command = f"say §4[Warning!]§r A server OP is manually restarting the server.\nRestarting in...\n"
+        subprocess_handle.stdin.write(rs_command)
+        subprocess_handle.stdin.flush()
+        for i in range(5, 0, -1):
+            await asyncio.sleep(1)
+            rscd_command = f"say §4{i}...\n"
+            subprocess_handle.stdin.write(rscd_command)
+            subprocess_handle.stdin.flush()
+        await asyncio.sleep(4)
+
         print(f'stopping subprocess_handle: "{subprocess_handle}"')
         subprocess_handle.stdin.write("stop\n")
         subprocess_handle.stdin.flush()
@@ -219,7 +448,6 @@ async def whitelist_add(interaction: discord.Interaction, user_name: str):
     else:
         log_channel = client.get_channel(logging_channel_id)
     global subprocess_handle
-    channel = interaction.channel
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("Sorry, you don't have permission to use this command.", ephemeral=True)
         return
@@ -245,7 +473,6 @@ async def whitelist_remove(interaction: discord.Interaction, user_name: str):
     else:
         log_channel = client.get_channel(logging_channel_id)
     global subprocess_handle
-    channel = interaction.channel
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("Sorry, you don't have permission to use this command.", ephemeral=True)
         return
@@ -271,7 +498,6 @@ async def ban(interaction: discord.Interaction, user_name: str):
     else:
         log_channel = client.get_channel(logging_channel_id)
     global subprocess_handle
-    channel = interaction.channel
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("Sorry, you don't have permission to use this command.", ephemeral=True)
         return
@@ -297,7 +523,6 @@ async def unban(interaction: discord.Interaction, user_name: str):
     else:
         log_channel = client.get_channel(logging_channel_id)
     global subprocess_handle
-    channel = interaction.channel
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("Sorry, you don't have permission to use this command.", ephemeral=True)
         return
@@ -380,7 +605,6 @@ async def op(interaction: discord.Interaction, user_name: str):
     else:
         log_channel = client.get_channel(logging_channel_id)
     global subprocess_handle
-    channel = interaction.channel
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("Sorry, you don't have permission to use this command.", ephemeral=True)
         return
@@ -406,19 +630,41 @@ async def deop(interaction: discord.Interaction, user_name: str):
     else:
         log_channel = client.get_channel(logging_channel_id)
     global subprocess_handle
-    channel = interaction.channel
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("Sorry, you don't have permission to use this command.", ephemeral=True)
         return
 
     if subprocess_handle:
         await interaction.response.send_message(f'Removing "{user_name}" from OP list...', ephemeral=True)
-        # Send the op command to the server
         command = f"deop {user_name}\n"
         subprocess_handle.stdin.write(command)
         subprocess_handle.stdin.flush()
         mc_pardon_embed = discord.Embed(title="DeOP", description=f"{user_name} has been removed as an operator.", colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
         await log_channel.send(embed=mc_pardon_embed)
+    else:
+        await interaction.response.send_message('Server Offline.', ephemeral=True)
+        err_embed = discord.Embed(title="MC Server Status", description='Server is not running.', colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
+        await log_channel.send(embed=op_embed)
+
+
+
+# https://www.digminecraft.com/lists/color_list_pc.php
+@client.tree.command(description="Sends messages to the the MC server.")
+async def say(interaction: discord.Interaction, msg: str):
+    if not logging_channel_id:
+        log_channel = interaction.channel
+    else:
+        log_channel = client.get_channel(logging_channel_id)
+
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("Sorry, you don't have permission to use this command.", ephemeral=True, delete_after=10)
+        return
+
+    if subprocess_handle:
+        await interaction.response.send_message(f'Message: {msg}\nHas been sent to the server!', ephemeral=True, delete_after=10)
+        command = f"say {msg}\n"
+        subprocess_handle.stdin.write(command)
+        subprocess_handle.stdin.flush()
     else:
         await interaction.response.send_message('Server Offline.', ephemeral=True)
         err_embed = discord.Embed(title="MC Server Status", description='Server is not running.', colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))

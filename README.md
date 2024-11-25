@@ -32,16 +32,20 @@ Use /restart to restart the server.
 /op to give a player operator commands.
 
 /deop to remove a player's operator commands. 
+
+/say {msg} for sending messages to the server for serverwide broadcasts.
 __ __
 
 <br>
 <br>
 
 # TODO
-  - Add commands for scheduled restarts.
-  - Add a command for backups.
-  - Add a command for /say (for serverwide broadcasts.)
-  - Somehow make discord and minecraft chat sync to add cross communication. 
+  - [x] Add commands for scheduled restarts.
+  - [x] Add a command for backups.
+  - [x] Add a command for /say (for serverwide broadcasts.)
+  - [] Somehow make discord and minecraft chat sync to add cross communication.
+  - [x] Send/say messages to the server before updating or restarting. (15min warning and 10s countdown)
+  - [x] Add system messages sent to the server when stopping, restarting, and making backups.
 
 # Special thanks
 @therealOri for major contributions. 
