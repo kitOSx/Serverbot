@@ -2,40 +2,38 @@ import discord
 from discord import app_commands
 import os
 import subprocess
-import tomllib
+import configparser
 import sys
 import asyncio
 import datetime
 import shutil
 import tempfile
 import zipfile
+import ast
 
 def clear():
     os.system("cls||clear") #cls for windows clear for linux/unix.
 
 
-#Load our config
-with open('config.toml', 'rb') as fileObj:
-    config = tomllib.load(fileObj) #dictionary/json
+config = configparser.ConfigParser()
+config.read('config.ini')
 
 
-
-
-TOKEN = config["token"]
-server_jar = config["server_jar"]
-min_heap_size = config["min_heap_size"]
-max_heap_size = config["max_heap_size"]
-guild_id = config["discord_guild"]
+TOKEN = config['Bot']["token"]
+guild_id = config.getint('Bot', 'discord_guild')
 GUILD = discord.Object(id=guild_id)
-logging_channel_id = config["logging_channel"]
+logging_channel_id = config.getint('Bot', 'logging_channel')
 
-create_backups = config['create_backups']
-backup_time = config['backup_time']
-to_save = config['to_save']
-backup_folder = config['backup_folder']
-backup_on_start = config['make_backup_on_start']
-create_restarts = config['create_restarts']
-restart_time = config['restart_after_time']
+server_jar = config['Server']["server_jar"]
+min_heap_size = config['Server']["min_heap_size"]
+max_heap_size = config['Server']["max_heap_size"]
+create_backups = config.getboolean('Server', 'create_backups')
+backup_on_start = config.getboolean('Server', 'make_backup_on_start')
+backup_time = config.getint('Server', 'backup_time')
+to_save = ast.literal_eval(config['Server']['to_save']) #ast will make the string "['a', 'b', 'c', 'd']" into a list. ['a', 'b', 'c', 'd']
+backup_folder = config['Server']['backup_folder']
+create_restarts = config.getboolean('Server', 'create_restarts')
+restart_time = config.getint('Server', 'restart_after_time')
 
 
 
@@ -131,8 +129,6 @@ async def async_timer(total_time, warn_minutes=None, svr_msg=None):
 
 
 
-
-
 def backup_files(paths, backup_folder=None):
     temp_dir = tempfile.mkdtemp()
     try:
@@ -218,8 +214,6 @@ async def scheduled_backup(log_channel):
             warning_message = f"§4[Warning!]:§r Server will create a backup and restart in: "
             await async_timer(total_time=sleepy_time, warn_minutes=[15], svr_msg=warning_message) # After X-hrs later, do this whole thing again.
             flg = 1
-
-
 
 
 
