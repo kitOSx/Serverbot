@@ -10,42 +10,34 @@ __ __
 <br>
 
 # Whats new? 
-Added commands for providing and removing operator privlages, a command to list out current players.
+- Updated main functionality to use buttons instead of `/commands`.
+- Added `hex_purple` for purple embeds.
+- Fixed some typos.
+- Updated `on_ready()` event to show "Registered Features" Instead of "Registered Commands".
+- Updated some error messages to show up as an `interaction.response` message instead of in the log channel for everyone to see.
+- Added a `/mc_menu` command for accessing the control pannel.
+- Added a `Backup` button for making backups manually.
+- Added a way to handle button states when swapping between menus.
+__ __
 
-# Commands
-Use /start to start the server.
+<br>
+<br>
 
-Use /stop to stop the server.
+# Showcase
+![github_serverbot_showcase](https://github.com/user-attachments/assets/7d075457-313a-4e4d-86ad-27065c2aa744)
 
-Use /restart to restart the server.
-
-/whitelist_add (playername) to whitelist a player.
-
-/whitelist_remove (playername) to remove a player from the whitelist.
-
-/ban (playername) to ban a player.
-
-/unban (playername) to unban a player.
-
-/mclist to list players currently online, if any.
-
-/op to give a player operator commands.
-
-/deop to remove a player's operator commands. 
-
-/say {msg} for sending messages to the server for serverwide broadcasts.
 __ __
 
 <br>
 <br>
 
 # TODO
-  - [x] Add commands for scheduled restarts.
-  - [x] Add a command for backups.
-  - [x] Add a command for /say (for serverwide broadcasts.)
+  - [x] Fix button states when switching back to main panel menu. (keep track of button states)
+  - [] Migrate/Rewrite bot to `Pycord` instead of using `discord.py`.
   - [] Somehow make discord and minecraft chat sync to add cross communication.
-  - [x] Send/say messages to the server before updating or restarting. (15min warning and 10s countdown)
-  - [x] Add system messages sent to the server when stopping, restarting, and making backups.
+__ __
+
+<br>
 
 # Special thanks
 @therealOri for major contributions. 
