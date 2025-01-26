@@ -1,6 +1,7 @@
 import discord
 from discord import app_commands
 import os
+from os.path import normpath, basename
 import subprocess
 import configparser
 import sys
@@ -10,6 +11,10 @@ import shutil
 import tempfile
 import zipfile
 import ast
+
+
+
+
 
 def clear():
     os.system("cls||clear") #cls for windows clear for linux/unix.
@@ -23,8 +28,6 @@ TOKEN = config['Bot']["token"]
 guild_id = config.getint('Bot', 'discord_guild')
 GUILD = discord.Object(id=guild_id)
 logging_channel_id = config.getint('Bot', 'logging_channel')
-
-
 server_jar = config['Server']["server_jar"]
 min_heap_size = config['Server']["min_heap_size"]
 max_heap_size = config['Server']["max_heap_size"]
@@ -48,7 +51,7 @@ hex_purple=0x8321EA
 
 # Global variable to store the subprocess handle for server management
 subprocess_handle = None
-
+mc_world_path = None
 
 
 
@@ -59,12 +62,21 @@ if not max_heap_size:
     max_heap_size = "1024M"
 
 
-#juicy platform control <3
-if sys.platform == 'win32':
-    platform_command = ['cmd', '/k', f'java -Xms{min_heap_size} -Xmx{max_heap_size} -jar {server_jar} nogui']
-else:
-    platform_command = ['java', f'-Xmx{max_heap_size}', f'-Xms{min_heap_size}', '-jar', f'{server_jar}', 'nogui']
 
+def set_handle(min_heap_size, max_heap_size, mc_world_path, server_jar):
+    global subprocess_handle
+    if sys.platform == 'win32': #juicy platform control <3
+        platform_command = ['cmd', '/k', f'java -Xms{min_heap_size} -Xmx{max_heap_size} -jar {os.path.join(mc_world_path, server_jar)} nogui']
+    else:
+        platform_command = ['java', f'-Xmx{max_heap_size}', f'-Xms{min_heap_size}', '-jar', f'{os.path.join(mc_world_path, server_jar)}', 'nogui']
+
+
+    subprocess_handle = subprocess.Popen(
+        platform_command,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True
+    )
 
 
 
@@ -199,12 +211,8 @@ async def scheduled_backup(log_channel):
                 backup_zip_path = backup_files(to_save, './backups')
                 print(f"Backup created: {backup_zip_path}")
 
-                subprocess_handle = subprocess.Popen(
-                    platform_command,
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    text=True
-                )
+                set_handle(min_heap_size, max_heap_size, mc_world_path, server_jar)
+
                 print("Starting server...")
                 await asyncio.sleep(10)
                 sb_start_embed = discord.Embed(title="MC Server Status", description='Server has been started and is Online!', colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
@@ -249,12 +257,8 @@ async def scheduled_restarts(log_channel):
                 print("Server Offline.")
 
                 # Start server again
-                subprocess_handle = subprocess.Popen(
-                    platform_command,
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    text=True
-                )
+                set_handle(min_heap_size, max_heap_size, mc_world_path, server_jar)
+
                 print("Starting server...")
                 await asyncio.sleep(10)
                 sr_start_embed = discord.Embed(title="MC Server Status", description='Server has been restarted and is Online!', colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
@@ -332,12 +336,8 @@ async def start(interaction: discord.Interaction):
     else:
         # Attempt to run the server
         await interaction.response.send_message("Attempting to start server!", ephemeral=True)
-        subprocess_handle = subprocess.Popen(
-            platform_command,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            text=True
-        )
+        set_handle(min_heap_size, max_heap_size, mc_world_path, server_jar)
+
         print("Running 'start' command.")
         await asyncio.sleep(10) # Wait for server to initialize and setup.
         start_embed = discord.Embed(title="MC Server Status", description='Server has been started and is Online!', colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
@@ -440,12 +440,8 @@ async def restart(interaction: discord.Interaction):
         await interaction.response.send_message("No server found to restart, starting a new one...", ephemeral=True)
 
     # Restart the server
-    subprocess_handle = subprocess.Popen(
-        platform_command,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        text=True
-    )
+    set_handle(min_heap_size, max_heap_size, mc_world_path, server_jar)
+
     print("Restarting the server.")
     await asyncio.sleep(10)
     if not stop_msg:
@@ -854,8 +850,13 @@ class Main_Menu(discord.ui.View):
     @discord.ui.button(label='Start', style=discord.ButtonStyle.green, emoji="▶️")
     async def start_server(self, interaction: discord.Interaction, button: discord.ui.Button):
         global subprocess_handle
+        global mc_world_path
         if subprocess_handle:
             await interaction.response.send_message('Server is already Online.', ephemeral=True, delete_after=10)
+            return
+        if not mc_world_path:
+            await interaction.response.send_message("Sorry, a world path is not defined. Please load a world instance and try again.", ephemeral=True, delete_after=10)
+            return
         else:
             self.button_states['Start']['style'] = discord.ButtonStyle.gray
             self.button_states['Start']['disabled'] = True
@@ -890,9 +891,10 @@ class Main_Menu(discord.ui.View):
     async def backup_server(self, interaction: discord.Interaction, button: discord.ui.Button):
         global subprocess_handle
         if subprocess_handle:
+            await interaction.response.defer()
             print("Creating Manual Backup...")
             backup_zip_path = backup_files(to_save, './backups')
-            await interaction.response.send_message("Backup has been created and saved to `./backups`!", ephemeral=True, delete_after=10)
+            await interaction.followup.send("Backup has been created and saved to `./backups`!", ephemeral=True,)
         else:
             await interaction.response.send_message(self.offline_msg, ephemeral=True, delete_after=10)
 
@@ -934,17 +936,36 @@ class Main_Menu(discord.ui.View):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 @client.tree.command(description="Menu pannel for MC server actions!")
 async def mc_menu(interaction: discord.Interaction):
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("Sorry, you don't have permission to use this command.", ephemeral=True, delete_after=10)
         return
 
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    current_world_path = os.getcwd()
+    if current_world_path == script_dir:
+        current_world_name = "No world instance loaded."
+    else:
+        current_world_name = os.path.basename(current_world_path)
+
     timeout=None
     view=Main_Menu(timeout=timeout)
-    description="""
+    description=f"""
 __**Minecraft Server Control Pannel! - 🎮**__
 > Manage your Minecraft server with ease using buttons!
+> World Instance: `{current_world_name}`
 
 
 __**Server Controls**__:
@@ -965,6 +986,34 @@ __**Server Controls**__:
         timestamp=datetime.datetime.now(datetime.timezone.utc)
     )
     await interaction.response.send_message(embed=menu_embed, view=view)
+
+
+
+
+
+
+@client.tree.command(name="mc_world_load", description="Loads a MC world instance to be hosted.")
+async def mc_world_load(interaction: discord.Interaction, world_path: str):
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("Sorry, you don't have permission to use this command.", ephemeral=True, delete_after=10)
+        return
+
+    # verify world_path exists
+    isExist = os.path.exists(world_path)
+    if isExist == False:
+        await interaction.response.send_message(f"Sorry, the path you gave is invalid or the folder is not found.\nPath: `{world_path}`", ephemeral=True, delete_after=15)
+        return
+
+    global mc_world_path
+    mc_world_path = world_path
+    os.chdir(world_path)
+    await interaction.response.send_message(f"World instance loaded!\nPath: `{world_path}`", ephemeral=True, delete_after=10)
+
+
+
+
+
+
 
 
 
