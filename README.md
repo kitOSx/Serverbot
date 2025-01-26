@@ -10,23 +10,19 @@ __ __
 <br>
 
 # Whats new? 
-- Updated main functionality to use buttons instead of `/commands`.
-- Added `hex_purple` for purple embeds.
-- Fixed some typos.
-- Updated `on_ready()` event to show "Registered Features" Instead of "Registered Commands".
-- Updated some error messages to show up as an `interaction.response` message instead of in the log channel for everyone to see.
-- Added a `/mc_menu` command for accessing the control pannel.
-- Added a `Backup` button for making backups manually.
-- Added a way to handle button states when swapping between menus.
+- Multi world support and world instance loading.
+- New command `/mc_world_load <path_to_server_folder>`
 __ __
+> You can now have multiple server folders all with their own world, mods, server properties, etc. By using `/mc_world_load` you can swap between them instead of having to manually mess with 
+files, configs, and mods everytime you want to play on a different world/server. 
 
 <br>
 <br>
 
 # Showcase
-![github_serverbot_showcase](https://github.com/user-attachments/assets/7d075457-313a-4e4d-86ad-27065c2aa744)
-
+![github_serverbot_showcase](https://github.com/user-attachments/assets/0e5e8ae8-f1db-4390-a5a2-5c36af36cd1a)
 __ __
+> The menu doesn't update so **make sure** to stop the server and **exit** before loading a new instance and opening a new menu.
 
 <br>
 <br>
