@@ -1,6 +1,7 @@
 import discord
 from discord import app_commands
 import os
+from os.path import normpath, basename
 import subprocess
 import configparser
 import sys
@@ -10,6 +11,10 @@ import shutil
 import tempfile
 import zipfile
 import ast
+
+
+
+
 
 def clear():
     os.system("cls||clear") #cls for windows clear for linux/unix.
@@ -23,7 +28,6 @@ TOKEN = config['Bot']["token"]
 guild_id = config.getint('Bot', 'discord_guild')
 GUILD = discord.Object(id=guild_id)
 logging_channel_id = config.getint('Bot', 'logging_channel')
-
 server_jar = config['Server']["server_jar"]
 min_heap_size = config['Server']["min_heap_size"]
 max_heap_size = config['Server']["max_heap_size"]
@@ -41,12 +45,13 @@ restart_time = config.getint('Server', 'restart_after_time')
 hex_red=0xFF0000
 hex_green=0x0AC700
 hex_yellow=0xFFF000 # I also like -> 0xf4c50b
+hex_purple=0x8321EA
 
 
 
 # Global variable to store the subprocess handle for server management
 subprocess_handle = None
-
+mc_world_path = None
 
 
 
@@ -57,12 +62,21 @@ if not max_heap_size:
     max_heap_size = "1024M"
 
 
-#juicy platform control <3
-if sys.platform == 'win32':
-    platform_command = ['cmd', '/k', f'java -Xms{min_heap_size} -Xmx{max_heap_size} -jar {server_jar} nogui']
-else:
-    platform_command = ['java', f'-Xmx{max_heap_size}', f'-Xms{min_heap_size}', '-jar', f'{server_jar}', 'nogui']
 
+def set_handle(min_heap_size, max_heap_size, mc_world_path, server_jar):
+    global subprocess_handle
+    if sys.platform == 'win32': #juicy platform control <3
+        platform_command = ['cmd', '/k', f'java -Xms{min_heap_size} -Xmx{max_heap_size} -jar {os.path.join(mc_world_path, server_jar)} nogui']
+    else:
+        platform_command = ['java', f'-Xmx{max_heap_size}', f'-Xms{min_heap_size}', '-jar', f'{os.path.join(mc_world_path, server_jar)}', 'nogui']
+
+
+    subprocess_handle = subprocess.Popen(
+        platform_command,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True
+    )
 
 
 
@@ -197,12 +211,8 @@ async def scheduled_backup(log_channel):
                 backup_zip_path = backup_files(to_save, './backups')
                 print(f"Backup created: {backup_zip_path}")
 
-                subprocess_handle = subprocess.Popen(
-                    platform_command,
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    text=True
-                )
+                set_handle(min_heap_size, max_heap_size, mc_world_path, server_jar)
+
                 print("Starting server...")
                 await asyncio.sleep(10)
                 sb_start_embed = discord.Embed(title="MC Server Status", description='Server has been started and is Online!', colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
@@ -247,12 +257,8 @@ async def scheduled_restarts(log_channel):
                 print("Server Offline.")
 
                 # Start server again
-                subprocess_handle = subprocess.Popen(
-                    platform_command,
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    text=True
-                )
+                set_handle(min_heap_size, max_heap_size, mc_world_path, server_jar)
+
                 print("Starting server...")
                 await asyncio.sleep(10)
                 sr_start_embed = discord.Embed(title="MC Server Status", description='Server has been restarted and is Online!', colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
@@ -268,14 +274,45 @@ async def scheduled_restarts(log_channel):
 
 
 
+
+#Exiting Main Menu
+async def exit(self, interaction):
+    global subprocess_handle
+    if subprocess_handle:
+        await interaction.response.send_message("⚠️ Warning: Please shut down the server first!", ephemeral=True, delete_after=10)
+    else:
+        await interaction.response.send_message("Goodbye!", ephemeral=True, delete_after=10)
+        await interaction.message.delete()
+        self.stop()
+
+
+
+async def offline_msg(interaction):
+    err_embed = discord.Embed(title="❌ Server Offline ❌", description="I am not able to run this command while the server is offline.", colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
+    err_embed.set_footer(text="Last Checked")
+    await interaction.response.send_message(embed=err_embed, ephemeral=True, delete_after=10)
+
+
+
+# Add new features here so it shows up when ready.
+features = {"Start & Stop":"Starts & Stops the MC server.",
+            "Restart":"Restarts the MC server manually.",
+            "Backup":"Manually makes a backup of the server files.",
+            "List":"Lists the players online in the server.",
+            "Say":"Broadcast messages to the server.",
+            "Whitelisting":"Add & Remove players from the MC server whitelist.",
+            "Banning":"Ban & Unban players from the server.",
+            "OP":"Give or Remove OP to/from players in the MC server."
+}
+
 @client.event
 async def on_ready():
     clear()
     print(f'Logged in as {client.user} (ID: {client.user.id})')
     print('------')
-    print('Registered Commands:')
-    for command in client.tree.get_commands():
-        print(f"- {command.name}: {command.description}")
+    print('Registered Features:')
+    for feature, info in features.items():
+        print(f"- {feature}: {info}")
     print('\n')
 
 
@@ -283,11 +320,6 @@ async def on_ready():
 
 
 
-
-
-
-
-@client.tree.command(description='Start Minecraft Server.')
 async def start(interaction: discord.Interaction):
     # If you don't provide a channel ID for sending logs, it will just use the channel that you sent the command in.
     if not logging_channel_id:
@@ -304,12 +336,8 @@ async def start(interaction: discord.Interaction):
     else:
         # Attempt to run the server
         await interaction.response.send_message("Attempting to start server!", ephemeral=True)
-        subprocess_handle = subprocess.Popen(
-            platform_command,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            text=True
-        )
+        set_handle(min_heap_size, max_heap_size, mc_world_path, server_jar)
+
         print("Running 'start' command.")
         await asyncio.sleep(10) # Wait for server to initialize and setup.
         start_embed = discord.Embed(title="MC Server Status", description='Server has been started and is Online!', colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
@@ -322,7 +350,6 @@ async def start(interaction: discord.Interaction):
 
 
 
-@client.tree.command(description="Stop Minecraft Server.")
 async def stop(interaction: discord.Interaction):
     if not logging_channel_id:
         log_channel = interaction.channel
@@ -365,13 +392,10 @@ async def stop(interaction: discord.Interaction):
         subprocess_handle = None
         print("Server Offline.")
     else:
-        await interaction.response.send_message('Server Offline.', ephemeral=True) # these interaction responses are for dealing with when you used the command. So it completes instead of errors.
-        err_embed = discord.Embed(title="MC Server Status", description='Server is not running.', colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
-        await log_channel.send(embed=err_embed)
+        await interaction.response.send_message('Server is already Offline.', ephemeral=True, delete_after=10) # these interaction responses are for dealing with when you used the command. So it completes instead of errors.
 
 
 
-@client.tree.command(description="Restarts Minecraft Server.")
 async def restart(interaction: discord.Interaction):
     if not logging_channel_id:
         log_channel = interaction.channel
@@ -416,12 +440,8 @@ async def restart(interaction: discord.Interaction):
         await interaction.response.send_message("No server found to restart, starting a new one...", ephemeral=True)
 
     # Restart the server
-    subprocess_handle = subprocess.Popen(
-        platform_command,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        text=True
-    )
+    set_handle(min_heap_size, max_heap_size, mc_world_path, server_jar)
+
     print("Restarting the server.")
     await asyncio.sleep(10)
     if not stop_msg:
@@ -435,7 +455,6 @@ async def restart(interaction: discord.Interaction):
 
 
 
-@client.tree.command(description="Add user to MC server whitelist.")
 async def whitelist_add(interaction: discord.Interaction, user_name: str):
     if not logging_channel_id:
         log_channel = interaction.channel
@@ -455,12 +474,10 @@ async def whitelist_add(interaction: discord.Interaction, user_name: str):
         wla_embed = discord.Embed(title="MC Server Command", description=f"User {user_name} has been added to the whitelist.", colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
         await log_channel.send(embed=wla_embed)
     else:
-        await interaction.response.send_message('Server Offline.', ephemeral=True)
-        err_embed = discord.Embed(title="MC Server Status", description='Server is not running.', colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
-        await log_channel.send(embed=err_embed)
+        await offline_msg(interaction) # "offline_msg()" is basically backup error handling in case it doesn't work the first time when using the buttons.
 
 
-@client.tree.command(description="Remove user from MC server whitelist.")
+
 async def whitelist_remove(interaction: discord.Interaction, user_name: str):
     if not logging_channel_id:
         log_channel = interaction.channel
@@ -480,12 +497,10 @@ async def whitelist_remove(interaction: discord.Interaction, user_name: str):
         wlr_embed = discord.Embed(title="MC Server Command", description=f"User {user_name} has been removed from the whitelist.", colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
         await log_channel.send(embed=wlr_embed)
     else:
-        await interaction.response.send_message('Server Offline.', ephemeral=True)
-        err_embed = discord.Embed(title="MC Server Status", description='Server is not running.', colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
-        await log_channel.send(embed=err_embed)
+        await offline_msg(interaction)
 
 
-@client.tree.command(description="Ban a user from the MC server.")
+
 async def ban(interaction: discord.Interaction, user_name: str):
     if not logging_channel_id:
         log_channel = interaction.channel
@@ -505,12 +520,10 @@ async def ban(interaction: discord.Interaction, user_name: str):
         mc_ban_embed = discord.Embed(title="MC Server Command", description=f"{user_name} has been banned.", colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
         await log_channel.send(embed=mc_ban_embed)
     else:
-        await interaction.response.send_message('Server Offline.', ephemeral=True)
-        err_embed = discord.Embed(title="MC Server Status", description='Server is not running.', colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
-        await log_channel.send(embed=err_embed)
+        await offline_msg(interaction)
 
 
-@client.tree.command(description="Unban user from the MC server.")
+
 async def unban(interaction: discord.Interaction, user_name: str):
     if not logging_channel_id:
         log_channel = interaction.channel
@@ -523,19 +536,17 @@ async def unban(interaction: discord.Interaction, user_name: str):
 
     if subprocess_handle:
         await interaction.response.send_message(f'Unbanning "{user_name}" from server...', ephemeral=True)
-        # Send the ban command to the server
+        # Send the unban command to the server
         command = f"pardon {user_name}\n"
         subprocess_handle.stdin.write(command)
         subprocess_handle.stdin.flush()
         mc_pardon_embed = discord.Embed(title="MC Server Command", description=f"{user_name} has been unbanned.", colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
         await log_channel.send(embed=mc_pardon_embed)
     else:
-        await interaction.response.send_message('Server Offline.', ephemeral=True)
-        err_embed = discord.Embed(title="MC Server Status", description='Server is not running.', colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
-        await log_channel.send(embed=err_embed)
+        await offline_msg(interaction)
 
 
-@client.tree.command(description="Lists users on the server.")
+
 async def mclist(interaction: discord.Interaction):
     global subprocess_handle
 
@@ -587,12 +598,10 @@ async def mclist(interaction: discord.Interaction):
 
         await interaction.followup.send(embed=lst_embed)
     else:
-        err_embed = discord.Embed(title="❌ Server Offline ❌", description="The Minecraft server is currently not running.", colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
-        err_embed.set_footer(text="Last Checked")
-        await interaction.response.send_message(embed=err_embed, ephemeral=True)
+        await offline_msg(interaction)
 
 
-@client.tree.command(description="Adds player to operator list.")
+
 async def op(interaction: discord.Interaction, user_name: str):
     if not logging_channel_id:
         log_channel = interaction.channel
@@ -612,12 +621,10 @@ async def op(interaction: discord.Interaction, user_name: str):
         mc_pardon_embed = discord.Embed(title="OP", description=f"{user_name} has been set as an operator.", colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
         await log_channel.send(embed=mc_pardon_embed)
     else:
-        await interaction.response.send_message('Server Offline.', ephemeral=True)
-        err_embed = discord.Embed(title="MC Server Status", description='Server is not running.', colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
-        await log_channel.send(embed=op_embed)
+        await offline_msg(interaction)
 
 
-@client.tree.command(description="Removes player to operator list.")
+
 async def deop(interaction: discord.Interaction, user_name: str):
     if not logging_channel_id:
         log_channel = interaction.channel
@@ -636,20 +643,11 @@ async def deop(interaction: discord.Interaction, user_name: str):
         mc_pardon_embed = discord.Embed(title="DeOP", description=f"{user_name} has been removed as an operator.", colour=hex_green, timestamp=datetime.datetime.now(datetime.timezone.utc))
         await log_channel.send(embed=mc_pardon_embed)
     else:
-        await interaction.response.send_message('Server Offline.', ephemeral=True)
-        err_embed = discord.Embed(title="MC Server Status", description='Server is not running.', colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
-        await log_channel.send(embed=op_embed)
-
+        await offline_msg(interaction)
 
 
 # https://www.digminecraft.com/lists/color_list_pc.php
-@client.tree.command(description="Sends messages to the the MC server.")
 async def say(interaction: discord.Interaction, msg: str):
-    if not logging_channel_id:
-        log_channel = interaction.channel
-    else:
-        log_channel = client.get_channel(logging_channel_id)
-
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("Sorry, you don't have permission to use this command.", ephemeral=True, delete_after=10)
         return
@@ -660,9 +658,364 @@ async def say(interaction: discord.Interaction, msg: str):
         subprocess_handle.stdin.write(command)
         subprocess_handle.stdin.flush()
     else:
-        await interaction.response.send_message('Server Offline.', ephemeral=True)
-        err_embed = discord.Embed(title="MC Server Status", description='Server is not running.', colour=hex_red, timestamp=datetime.datetime.now(datetime.timezone.utc))
-        await log_channel.send(embed=op_embed)
+        await offline_msg(interaction)
+
+
+
+
+
+
+
+# Modals
+class mc_wlAdd(discord.ui.Modal, title='Minecraft User Whitelist.'):
+    code = discord.ui.TextInput(
+        label='MC Username to whitelist.',
+        placeholder='Username here...',
+        required=True
+    )
+    async def on_submit(self, interaction: discord.Interaction):
+        mc_username = self.code.value #this is what the user typed
+        await whitelist_add(interaction, mc_username)
+
+
+class mc_wlRemove(discord.ui.Modal, title='Minecraft User Whitelist.'):
+    code = discord.ui.TextInput(
+        label='MC Username to remove from whitelist.',
+        placeholder='Username here...',
+        required=True
+    )
+    async def on_submit(self, interaction: discord.Interaction):
+        mc_username = self.code.value
+        await whitelist_remove(interaction, mc_username)
+
+
+class mc_Ban(discord.ui.Modal, title='Minecraft User Banning.'):
+    code = discord.ui.TextInput(
+        label='MC Username to Ban from the server.',
+        placeholder='Username here...',
+        required=True
+    )
+    async def on_submit(self, interaction: discord.Interaction):
+        mc_username = self.code.value
+        await ban(interaction, mc_username)
+
+
+class mc_UnBan(discord.ui.Modal, title='Minecraft User Un-Banning.'):
+    code = discord.ui.TextInput(
+        label='MC Username to UnBan from the server.',
+        placeholder='Username here...',
+        required=True
+    )
+    async def on_submit(self, interaction: discord.Interaction):
+        mc_username = self.code.value
+        await unban(interaction, mc_username)
+
+
+class mc_OP(discord.ui.Modal, title='Minecraft User OP.'):
+    code = discord.ui.TextInput(
+        label='OP a user on the MC server.',
+        placeholder='Username here...',
+        required=True
+    )
+    async def on_submit(self, interaction: discord.Interaction):
+        mc_username = self.code.value
+        await op(interaction, mc_username)
+
+
+class mc_DeOP(discord.ui.Modal, title='Minecraft User De-OP.'):
+    code = discord.ui.TextInput(
+        label='De-OP a user on the MC server.',
+        placeholder='Username here...',
+        required=True
+    )
+    async def on_submit(self, interaction: discord.Interaction):
+        mc_username = self.code.value
+        await deop(interaction, mc_username)
+
+
+class mc_Say(discord.ui.Modal, title='Minecraft Sever Broadcast.'):
+    code = discord.ui.TextInput(
+        label='Boadcast a message to the MC server.',
+        placeholder='Message here...',
+        required=True
+    )
+    async def on_submit(self, interaction: discord.Interaction):
+        mc_message = self.code.value
+        await say(interaction, mc_message)
+
+
+
+
+
+
+
+# Buttons/Menus
+class User_Management_Menu(discord.ui.View):
+    def __init__(self, offline_msg, timeout=None):
+        super().__init__(timeout=timeout)
+        self.offline_msg = offline_msg
+
+    @discord.ui.button(label='Whitelist', style=discord.ButtonStyle.blurple, emoji="✅")
+    async def whitelist(self, interaction: discord.Interaction, button: discord.ui.Button):
+        global subprocess_handle
+        if subprocess_handle:
+            wlAdd = mc_wlAdd()
+            await interaction.response.send_modal(wlAdd)
+        else:
+            await interaction.response.send_message(self.offline_msg, ephemeral=True, delete_after=10)
+
+    @discord.ui.button(label='De-whitelist', style=discord.ButtonStyle.blurple, emoji="❌")
+    async def dewhitelist(self, interaction: discord.Interaction, button: discord.ui.Button):
+        global subprocess_handle
+        if subprocess_handle:
+            wlRemove = mc_wlRemove()
+            await interaction.response.send_modal(wlRemove)
+        else:
+            await interaction.response.send_message(self.offline_msg, ephemeral=True, delete_after=10)
+
+
+    @discord.ui.button(label='Ban', style=discord.ButtonStyle.blurple, emoji="🔨")
+    async def mc_ban(self, interaction: discord.Interaction, button: discord.ui.Button):
+        global subprocess_handle
+        if subprocess_handle:
+            svr_ban = mc_Ban()
+            await interaction.response.send_modal(svr_ban)
+        else:
+            await interaction.response.send_message(self.offline_msg, ephemeral=True, delete_after=10)
+
+
+    @discord.ui.button(label='Unban', style=discord.ButtonStyle.blurple, emoji="🔧")
+    async def mc_unban(self, interaction: discord.Interaction, button: discord.ui.Button):
+        global subprocess_handle
+        if subprocess_handle:
+            svr_unban = mc_UnBan()
+            await interaction.response.send_modal(svr_unban)
+        else:
+            await interaction.response.send_message(self.offline_msg, ephemeral=True, delete_after=10)
+
+    @discord.ui.button(label='Op', style=discord.ButtonStyle.blurple, emoji="👤")
+    async def op_a_user(self, interaction: discord.Interaction, button: discord.ui.Button):
+        global subprocess_handle
+        if subprocess_handle:
+            svr_op = mc_OP()
+            await interaction.response.send_modal(svr_op)
+        else:
+            await interaction.response.send_message(self.offline_msg, ephemeral=True, delete_after=10)
+
+
+    @discord.ui.button(label='De-Op', style=discord.ButtonStyle.blurple, emoji="🚷")
+    async def deop_a_user(self, interaction: discord.Interaction, button: discord.ui.Button):
+        global subprocess_handle
+        if subprocess_handle:
+            svr_deop = mc_DeOP()
+            await interaction.response.send_modal(svr_deop)
+        else:
+            await interaction.response.send_message(self.offline_msg, ephemeral=True, delete_after=10)
+
+    @discord.ui.button(label='Back', style=discord.ButtonStyle.red, emoji="🚪")
+    async def prev_menu(self, interaction: discord.Interaction, button: discord.ui.Button):
+        timeout=None
+        view = Main_Menu(timeout=timeout)
+        view.edit_button_states()
+        await interaction.response.edit_message(view=view)
+
+
+
+
+
+
+class Main_Menu(discord.ui.View):
+    def __init__(self, timeout=None):
+        super().__init__(timeout=timeout)
+
+
+    offline_msg="Server is Offline and can't run this command."
+    button_states = {
+        'Start': {
+            'style': discord.ButtonStyle.green,
+            'disabled': False
+        },
+        'Stop': {
+            'style': discord.ButtonStyle.red,
+            'disabled': True
+        }
+    }
+    def edit_button_states(self):
+        for item in self.children:
+            if item.label in self.button_states:
+                state = self.button_states[item.label]
+                item.style = state['style']
+                item.disabled = state['disabled']
+
+    @discord.ui.button(label='Start', style=discord.ButtonStyle.green, emoji="▶️")
+    async def start_server(self, interaction: discord.Interaction, button: discord.ui.Button):
+        global subprocess_handle
+        global mc_world_path
+        if subprocess_handle:
+            await interaction.response.send_message('Server is already Online.', ephemeral=True, delete_after=10)
+            return
+        if not mc_world_path:
+            await interaction.response.send_message("Sorry, a world path is not defined. Please load a world instance and try again.", ephemeral=True, delete_after=10)
+            return
+        else:
+            self.button_states['Start']['style'] = discord.ButtonStyle.gray
+            self.button_states['Start']['disabled'] = True
+            self.button_states['Stop']['disabled'] = False
+
+            self.edit_button_states()
+            await interaction.message.edit(view=self)
+            await start(interaction)
+
+
+    @discord.ui.button(label='Stop', style=discord.ButtonStyle.red, emoji="🛑", disabled=True)
+    async def stop_server(self, interaction: discord.Interaction, button: discord.ui.Button):
+        global subprocess_handle
+        if subprocess_handle:
+            self.button_states['Start']['style'] = discord.ButtonStyle.green
+            self.button_states['Start']['disabled'] = False
+            self.button_states['Stop']['disabled'] = True
+
+            self.edit_button_states()
+            await interaction.message.edit(view=self)
+            await stop(interaction)
+        else:
+            await interaction.response.send_message('Server is already Offline.', ephemeral=True, delete_after=10)
+
+
+    @discord.ui.button(label='Restart', style=discord.ButtonStyle.green, emoji="🔁")
+    async def restart_server(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await restart(interaction)
+
+
+    @discord.ui.button(label='Backup', style=discord.ButtonStyle.grey, emoji="💾")
+    async def backup_server(self, interaction: discord.Interaction, button: discord.ui.Button):
+        global subprocess_handle
+        if subprocess_handle:
+            await interaction.response.defer()
+            print("Creating Manual Backup...")
+            backup_zip_path = backup_files(to_save, './backups')
+            await interaction.followup.send("Backup has been created and saved to `./backups`!", ephemeral=True,)
+        else:
+            await interaction.response.send_message(self.offline_msg, ephemeral=True, delete_after=10)
+
+
+    @discord.ui.button(label='List', style=discord.ButtonStyle.blurple, emoji="📋")
+    async def list_users(self, interaction: discord.Interaction, button: discord.ui.Button):
+        global subprocess_handle
+        if subprocess_handle:
+            await mclist(interaction)
+        else:
+            await interaction.response.send_message(self.offline_msg, ephemeral=True, delete_after=10)
+
+
+    @discord.ui.button(label='Say', style=discord.ButtonStyle.blurple, emoji="💬")
+    async def server_say(self, interaction: discord.Interaction, button: discord.ui.Button):
+        global subprocess_handle
+        if subprocess_handle:
+            svr_say = mc_Say()
+            await interaction.response.send_modal(svr_say)
+        else:
+            await interaction.response.send_message(self.offline_msg, ephemeral=True, delete_after=10)
+
+
+    @discord.ui.button(label='Player Pannel', style=discord.ButtonStyle.blurple, emoji="🛗")
+    async def player_menu(self, interaction: discord.Interaction, button: discord.ui.Button):
+        timeout=None
+        view = User_Management_Menu(self.offline_msg, timeout=timeout)
+        await interaction.response.edit_message(view=view)
+
+
+    @discord.ui.button(label='Exit', style=discord.ButtonStyle.red, emoji="🚪")
+    async def exit_menu(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await exit(self, interaction)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@client.tree.command(description="Menu pannel for MC server actions!")
+async def mc_menu(interaction: discord.Interaction):
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("Sorry, you don't have permission to use this command.", ephemeral=True, delete_after=10)
+        return
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    current_world_path = os.getcwd()
+    if current_world_path == script_dir:
+        current_world_name = "No world instance loaded."
+    else:
+        current_world_name = os.path.basename(current_world_path)
+
+    timeout=None
+    view=Main_Menu(timeout=timeout)
+    description=f"""
+__**Minecraft Server Control Pannel! - 🎮**__
+> Manage your Minecraft server with ease using buttons!
+> World Instance: `{current_world_name}`
+
+
+__**Server Controls**__:
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+- **Start & Stop**: Starts and stops the server.
+- **Restart**: Restarts the server.
+- **Backup**: Makes a manual backup.
+- **Player Pannel**: Lets you use commands for managing users in your server. (Whitelisting, OP, Bans, etc.)
+- **Say**: Send/broadcast messages directly to the server chat.
+- **List**: View online players and server info.
+
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+"""
+    menu_embed = discord.Embed(
+        description=description,
+        color=hex_purple,
+        timestamp=datetime.datetime.now(datetime.timezone.utc)
+    )
+    await interaction.response.send_message(embed=menu_embed, view=view)
+
+
+
+
+
+
+@client.tree.command(name="mc_world_load", description="Loads a MC world instance to be hosted.")
+async def mc_world_load(interaction: discord.Interaction, world_path: str):
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("Sorry, you don't have permission to use this command.", ephemeral=True, delete_after=10)
+        return
+
+    # verify world_path exists
+    isExist = os.path.exists(world_path)
+    if isExist == False:
+        await interaction.response.send_message(f"Sorry, the path you gave is invalid or the folder is not found.\nPath: `{world_path}`", ephemeral=True, delete_after=15)
+        return
+
+    global mc_world_path
+    mc_world_path = world_path
+    os.chdir(world_path)
+    await interaction.response.send_message(f"World instance loaded!\nPath: `{world_path}`", ephemeral=True, delete_after=10)
+
+
+
+
+
+
+
+
 
 # Run the bot
 client.run(TOKEN, reconnect=True)

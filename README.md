@@ -10,42 +10,30 @@ __ __
 <br>
 
 # Whats new? 
-Added commands for providing and removing operator privlages, a command to list out current players.
-
-# Commands
-Use /start to start the server.
-
-Use /stop to stop the server.
-
-Use /restart to restart the server.
-
-/whitelist_add (playername) to whitelist a player.
-
-/whitelist_remove (playername) to remove a player from the whitelist.
-
-/ban (playername) to ban a player.
-
-/unban (playername) to unban a player.
-
-/mclist to list players currently online, if any.
-
-/op to give a player operator commands.
-
-/deop to remove a player's operator commands. 
-
-/say {msg} for sending messages to the server for serverwide broadcasts.
+- Multi world support and world instance loading.
+- New command `/mc_world_load <path_to_server_folder>`
 __ __
+> You can now have multiple server folders all with their own world, mods, server properties, etc. By using `/mc_world_load` you can swap between them instead of having to manually mess with 
+files, configs, and mods everytime you want to play on a different world/server. 
+
+<br>
+<br>
+
+# Showcase
+![github_serverbot_showcase](https://github.com/user-attachments/assets/0e5e8ae8-f1db-4390-a5a2-5c36af36cd1a)
+__ __
+> The menu doesn't update so **make sure** to stop the server and **exit** before loading a new instance and opening a new menu.
 
 <br>
 <br>
 
 # TODO
-  - [x] Add commands for scheduled restarts.
-  - [x] Add a command for backups.
-  - [x] Add a command for /say (for serverwide broadcasts.)
+  - [x] Fix button states when switching back to main panel menu. (keep track of button states)
+  - [] Migrate/Rewrite bot to `Pycord` instead of using `discord.py`.
   - [] Somehow make discord and minecraft chat sync to add cross communication.
-  - [x] Send/say messages to the server before updating or restarting. (15min warning and 10s countdown)
-  - [x] Add system messages sent to the server when stopping, restarting, and making backups.
+__ __
+
+<br>
 
 # Special thanks
 @therealOri for major contributions. 
