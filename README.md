@@ -31,7 +31,8 @@ __ __
   - [x] Fix button states when switching back to main panel menu. (keep track of button states)
   - [] Migrate/Rewrite bot to `Pycord` instead of using `discord.py`.
   - [] Somehow make discord and minecraft chat sync to add cross communication.
-  - [] Fix the damn injection exploit I hate you Scott for finding it 
+  - [x] Fix the damn injection exploit I hate you Scott for finding it
+        \\ Some mods cause minecrafts user input sterilization to break. This will cause issues with the /say command. Be warned. 
 __ __
 
 <br>
