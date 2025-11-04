@@ -31,6 +31,7 @@ __ __
   - [x] Fix button states when switching back to main panel menu. (keep track of button states)
   - [] Migrate/Rewrite bot to `Pycord` instead of using `discord.py`.
   - [] Somehow make discord and minecraft chat sync to add cross communication.
+  - [] Fix the damn injection exploit I hate you Scott for finding it 
 __ __
 
 <br>
