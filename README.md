@@ -32,7 +32,19 @@ __ __
   - [] Migrate/Rewrite bot to `Pycord` instead of using `discord.py`.
   - [] Somehow make discord and minecraft chat sync to add cross communication.
   - [x] Fix the damn injection exploit I hate you Scott for finding it
-        \\ Some mods cause minecrafts user input sterilization to break. This will cause issues with the /say command. Be warned. 
+        - Some mods cause minecrafts user input sterilization to break. This will cause issues with the /say command. Be warned.
+
+# Being worked on currently 
+  - I have a /somewhat/ functional web gui set up based around Flask. It is not working as intended, but I am very close. Here are some of the things that will be added with the GUI (hopefully); 
+      - Configuration changes can be done through the webgui instead of having to manually edit settings in the config file itself, i.e. Allocation, tokens, server.jar/world folder location, etc. 
+      - You will be able to add your own commands through the interface. This allows you to add commands from vanilla, mods, server pluggins or other server mod loaders.
+      - Working on getting graphs working for memory usage based on what you have allocated.
+      - Figure out what the code I wrote months ago for this gui even is supposed to do...
+        
+  - I understand bad actors could use this tool to do harm to your server, and at worst your PC. Testing showed originally that users could bypass admin restrictions and gain OP on servers running certain chat addons,
+    most likely insecure input handling by the chat addon, allowing newline/control-character or some instances, JSON injection; Allowing users to escalate privlages. Out of the many I have tried, none of the mods I've tried       had this issue. I know its not the bot - the bot sends the same exact thing you type to the java process to be used, so any way you try to get around the safeguards will fail due to how the original input sterilization
+    works in chat. I will be working on a proper sanitizer to prevent this from occurring, in the future. 
+
 __ __
 
 <br>
